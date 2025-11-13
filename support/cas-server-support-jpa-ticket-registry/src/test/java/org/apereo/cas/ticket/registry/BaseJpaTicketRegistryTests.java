@@ -1,5 +1,6 @@
 package org.apereo.cas.ticket.registry;
 
+import java.util.UUID;
 import org.apereo.cas.authentication.CoreAuthenticationTestUtils;
 import org.apereo.cas.config.CasCoreSamlAutoConfiguration;
 import org.apereo.cas.config.CasHibernateJpaAutoConfiguration;
@@ -93,6 +94,28 @@ public abstract class BaseJpaTicketRegistryTests extends BaseTicketRegistryTests
         stopwatch.stop();
         val time = stopwatch.getTime(TimeUnit.SECONDS);
         assertTrue(time <= 20);
+    }
+
+    @RepeatedTest(2)
+    void verifyGetSessionsFor() {
+        val principalId = UUID.randomUUID().toString();
+        val authentication = CoreAuthenticationTestUtils.getAuthentication(principalId);
+        val ticketGrantingTicketToAdd = Stream.generate(() -> {
+                val tgtId = new TicketGrantingTicketIdGenerator(10, StringUtils.EMPTY)
+                    .getNewTicketId(TicketGrantingTicket.PREFIX);
+                return new TicketGrantingTicketImpl(tgtId, authentication, NeverExpiresExpirationPolicy.INSTANCE);
+            })
+            .limit(5);
+        newTicketRegistry.addTicket(ticketGrantingTicketToAdd);
+
+        val criteria1 = new TicketRegistryQueryCriteria()
+            .setCount(5L)
+            .setDecode(Boolean.FALSE)
+            .setType(TicketGrantingTicket.PREFIX);
+        val queryResults1 = newTicketRegistry.query(criteria1);
+        assertEquals(criteria1.getCount(), queryResults1.size());
+
+        assertEquals(5, newTicketRegistry.getSessionsFor(principalId).count());
     }
 
     @RepeatedTest(2)
